@@ -26,6 +26,11 @@ app.get('/', function(req, res) {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.get('/results', function(req, res) {
+    console.log(req);
+    res.send('<pre>' + JSON.stringify(received_updates, null, 2) + '</pre>');
+  });
+
 app.get('/privacy-policy', function(req, res) {
     res.sendFile(path.join(__dirname, 'public', 'privacy-policy.html'));
 });
