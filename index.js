@@ -78,7 +78,7 @@ app.post('/instagram', function(req, res) {
     received_updates.unshift(req.body);
     
     // Forward the data to the external webhook
-    axios.post('https://n8n.gozar.team/webhook-test/64ddd21e-74d7-40ab-baae-6d0545782209', req.body)
+    axios.post( process.env.N8N_WEBHOOK, req.body)
         .then(response => {
             console.log('Webhook forwarding successful:', response.status);
             received_updates.unshift({status:response.status});
