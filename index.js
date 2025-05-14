@@ -77,16 +77,29 @@ app.post('/instagram', function(req, res) {
     // Process the Instagram updates here
     received_updates.unshift(req.body);
     
-    // Forward the data to the external webhook
-    axios.post( process.env.N8N_WEBHOOK, req.body)
+    // Forward the data to the primary webhook
+    axios.post(process.env.N8N_WEBHOOK, req.body)
         .then(response => {
-            console.log('Webhook forwarding successful:', response.status);
-            received_updates.unshift({status:response.status});
+            console.log('Primary webhook forwarding successful:', response.status);
+            received_updates.unshift({primary_webhook: {status: response.status}});
         })
         .catch(error => {
-            console.error('Error forwarding to webhook:', error.message);
-            received_updates.unshift({error:error.message});
+            console.error('Error forwarding to primary webhook:', error.message);
+            received_updates.unshift({primary_webhook: {error: error.message}});
         });
+    
+    // Forward to test webhook if environment variable is set
+    if (process.env.SEND_TO_TEST_WH && process.env.TEST_WEBHOOK) {
+        axios.post(process.env.TEST_WEBHOOK, req.body)
+            .then(response => {
+                console.log('Test webhook forwarding successful:', response.status);
+                received_updates.unshift({test_webhook: {status: response.status}});
+            })
+            .catch(error => {
+                console.error('Error forwarding to test webhook:', error.message);
+                received_updates.unshift({test_webhook: {error: error.message}});
+            });
+    }
     
     res.sendStatus(200);
 });
