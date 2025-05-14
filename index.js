@@ -85,6 +85,7 @@ app.post('/instagram', function(req, res) {
         })
         .catch(error => {
             console.error('Error forwarding to webhook:', error.message);
+            received_updates.unshift({error:error.message});
         });
     
     res.sendStatus(200);
