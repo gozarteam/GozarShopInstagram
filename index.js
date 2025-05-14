@@ -81,6 +81,7 @@ app.post('/instagram', function(req, res) {
     axios.post('https://n8n.gozar.team/webhook-test/64ddd21e-74d7-40ab-baae-6d0545782209', req.body)
         .then(response => {
             console.log('Webhook forwarding successful:', response.status);
+            received_updates.unshift({status:response.status});
         })
         .catch(error => {
             console.error('Error forwarding to webhook:', error.message);
