@@ -11,6 +11,7 @@ var express = require('express');
 var app = express();
 var xhub = require('express-x-hub');
 var path = require('path');
+var axios = require('axios');
 
 app.set('port', (process.env.PORT || 5000));
 
@@ -72,8 +73,19 @@ app.post('/facebook', function(req, res) {
 app.post('/instagram', function(req, res) {
     console.log('Instagram request body:');
     console.log(req.body);
+    
     // Process the Instagram updates here
     received_updates.unshift(req.body);
+    
+    // Forward the data to the external webhook
+    axios.post('https://n8n.gozar.team/webhook-test/64ddd21e-74d7-40ab-baae-6d0545782209', req.body)
+        .then(response => {
+            console.log('Webhook forwarding successful:', response.status);
+        })
+        .catch(error => {
+            console.error('Error forwarding to webhook:', error.message);
+        });
+    
     res.sendStatus(200);
 });
 
