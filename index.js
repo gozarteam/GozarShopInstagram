@@ -6,113 +6,125 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-var bodyParser = require('body-parser');
 var express = require('express');
-var app = express();
+var bodyParser = require('body-parser');
+var morgan = require('morgan');
 var xhub = require('express-x-hub');
 var path = require('path');
 var axios = require('axios');
 
-app.set('port', (process.env.PORT || 5000));
-
-app.use(xhub({ algorithm: 'sha1', secret: process.env.APP_SECRET }));
-app.use(bodyParser.json());
-app.use(express.static('public'));
+var app = express();
+app.set('port', process.env.PORT || 5000);
 
 var token = process.env.TOKEN || 'token';
 var received_updates = [];
 
-// Serve HTML pages
-app.get('/', function(req, res) {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// Middleware: Logging
+app.use(morgan('combined')); // ✅ Standard request logs
+
+// ✅ Custom logger for full detail (headers + body)
+app.use((req, res, next) => {
+  console.log(`\n🔹 ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  console.log('🔸 Headers:', JSON.stringify(req.headers, null, 2));
+  if (req.body && Object.keys(req.body).length) {
+    console.log('🔸 Body:', JSON.stringify(req.body, null, 2));
+  }
+  next();
 });
 
-app.get('/results', function(req, res) {
-    console.log(req);
-    res.send('<pre>' + JSON.stringify(received_updates, null, 2) + '</pre>');
-  });
+// Other middleware
+app.use(xhub({ algorithm: 'sha1', secret: process.env.APP_SECRET }));
+app.use(bodyParser.json());
+app.use(express.static('public'));
 
-app.get('/privacy-policy', function(req, res) {
-    res.sendFile(path.join(__dirname, 'public', 'privacy-policy.html'));
+// Serve static HTML pages
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/delete-request', function(req, res) {
-    res.sendFile(path.join(__dirname, 'public', 'delete-request.html'));
+app.get('/results', (req, res) => {
+  res.send('<pre>' + JSON.stringify(received_updates, null, 2) + '</pre>');
 });
 
-app.get('/terms-of-service', function(req, res) {
-    res.sendFile(path.join(__dirname, 'public', 'terms-of-service.html'));
+app.get('/privacy-policy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'privacy-policy.html'));
 });
 
-app.get(['/facebook', '/instagram', '/threads'], function(req, res) {
-    if (
-        req.query['hub.mode'] == 'subscribe' &&
-        req.query['hub.verify_token'] == token
-    ) {
-        res.send(req.query['hub.challenge']);
-    } else {
-        res.sendStatus(400);
-    }
+app.get('/delete-request', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'delete-request.html'));
 });
 
-app.post('/facebook', function(req, res) {
-    console.log('Facebook request body:', req.body);
-
-    if (!req.isXHubValid()) {
-        console.log('Warning - request header X-Hub-Signature not present or invalid');
-        res.sendStatus(401);
-        return;
-    }
-
-    console.log('request header X-Hub-Signature validated');
-    // Process the Facebook updates here
-    received_updates.unshift(req.body);
-    res.sendStatus(200);
+app.get('/terms-of-service', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'terms-of-service.html'));
 });
 
-app.post('/instagram', function(req, res) {
-    console.log('Instagram request body:');
-    console.log(req.body);
-    
-    // Process the Instagram updates here
-    received_updates.unshift(req.body);
-    
-    // Forward the data to the primary webhook
-    axios.post(process.env.N8N_WEBHOOK, req.body)
-        .then(response => {
-            console.log('Primary webhook forwarding successful:', response.status);
-            received_updates.unshift({primary_webhook: {status: response.status}});
-        })
-        .catch(error => {
-            console.error('Error forwarding to primary webhook:', error.message);
-            received_updates.unshift({primary_webhook: {error: error.message}});
-        });
-    
-    // Forward to test webhook if environment variable is set
-    if (process.env.SEND_TO_TEST_WH && process.env.TEST_WEBHOOK) {
-        axios.post(process.env.TEST_WEBHOOK, req.body)
-            .then(response => {
-                console.log('Test webhook forwarding successful:', response.status);
-                received_updates.unshift({test_webhook: {status: response.status}});
-            })
-            .catch(error => {
-                console.error('Error forwarding to test webhook:', error.message);
-                received_updates.unshift({test_webhook: {error: error.message}});
-            });
-    }
-    
-    res.sendStatus(200);
+// Facebook / Instagram / Threads verification
+app.get(['/facebook', '/instagram', '/threads'], (req, res) => {
+  if (
+    req.query['hub.mode'] === 'subscribe' &&
+    req.query['hub.verify_token'] === token
+  ) {
+    res.send(req.query['hub.challenge']);
+  } else {
+    res.sendStatus(400);
+  }
 });
 
-app.post('/threads', function(req, res) {
-    console.log('Threads request body:');
-    console.log(req.body);
-    // Process the Threads updates here
-    received_updates.unshift(req.body);
-    res.sendStatus(200);
+// Facebook webhook
+app.post('/facebook', (req, res) => {
+  console.log('✅ Facebook request body:', req.body);
+
+  if (!req.isXHubValid()) {
+    console.log('⚠️ Invalid X-Hub-Signature');
+    res.sendStatus(401);
+    return;
+  }
+
+  console.log('✅ X-Hub-Signature validated');
+  received_updates.unshift(req.body);
+  res.sendStatus(200);
 });
 
-// Start the server
-app.listen(app.get('port'), function() {
-    console.log('Node app is running on port', app.get('port'));
-}); 
+// Instagram webhook
+app.post('/instagram', (req, res) => {
+  console.log('✅ Instagram request body:', req.body);
+  received_updates.unshift(req.body);
+
+  // Forward to primary webhook
+  axios.post(process.env.N8N_WEBHOOK, req.body)
+    .then(response => {
+      console.log('➡️ Primary webhook success:', response.status);
+      received_updates.unshift({ primary_webhook: { status: response.status } });
+    })
+    .catch(error => {
+      console.error('❌ Primary webhook error:', error.message);
+      received_updates.unshift({ primary_webhook: { error: error.message } });
+    });
+
+  // Optionally forward to test webhook
+  if (process.env.SEND_TO_TEST_WH && process.env.TEST_WEBHOOK) {
+    axios.post(process.env.TEST_WEBHOOK, req.body)
+      .then(response => {
+        console.log('➡️ Test webhook success:', response.status);
+        received_updates.unshift({ test_webhook: { status: response.status } });
+      })
+      .catch(error => {
+        console.error('❌ Test webhook error:', error.message);
+        received_updates.unshift({ test_webhook: { error: error.message } });
+      });
+  }
+
+  res.sendStatus(200);
+});
+
+// Threads webhook
+app.post('/threads', (req, res) => {
+  console.log('✅ Threads request body:', req.body);
+  received_updates.unshift(req.body);
+  res.sendStatus(200);
+});
+
+// Start server
+app.listen(app.get('port'), () => {
+  console.log(`🚀 Node app is running on port ${app.get('port')}`);
+});

@@ -10,7 +10,8 @@
     "axios": "^1.6.2",
     "body-parser": "~1.20.3",
     "express": "~4.13.3",
-    "express-x-hub": "^1.0.4"
+    "express-x-hub": "^1.0.4",
+    "morgan": "^1.10.0"
   },
   "engines": {
     "node": "0.12.7"
