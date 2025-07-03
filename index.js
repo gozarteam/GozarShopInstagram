@@ -42,9 +42,9 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/results', (req, res) => {
-  res.send('<pre>' + JSON.stringify(received_updates, null, 2) + '</pre>');
-});
+// app.get('/results', (req, res) => {
+//   res.send('<pre>' + JSON.stringify(received_updates, null, 2) + '</pre>');
+// });
 
 app.get('/privacy-policy', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'privacy-policy.html'));
